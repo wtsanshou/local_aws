@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <appender name="CONSOLE"   class="ch.qos.logback.core.ConsoleAppender">
+        <target>System.out</target>
+        <encoder>
+            <pattern>%date{MM/dd HH:mm:ss} [%thread] %-5level %logger{36} %X{akkaSource} - %msg%n</pattern>
+        </encoder>
+    </appender>
+    <logger name="slick" level="INFO" >
+        <appender-ref ref="CONSOLE"/>
+    </logger>
+    <logger name="akka.event.slf4j.Slf4jLogger" level="WARN"
+            additivity="false">
+        <appender-ref ref="CONSOLE" />
+    </logger>
+    <root level="ERROR">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+</configuration>
