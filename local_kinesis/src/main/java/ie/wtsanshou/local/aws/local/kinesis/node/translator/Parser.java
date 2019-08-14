@@ -6,11 +6,15 @@ import io.vavr.Tuple;
 import io.vavr.Tuple2;
 
 public class Parser {
-    public static Tuple2<CommittableReadResult, String> decode(CommittableReadResult rr) throws ParserException {
+
+    private Parser() {
+    }
+
+    public static Tuple2<CommittableReadResult, String> decode(CommittableReadResult crr) throws ParserException {
         try {
-            return Tuple.of(rr, rr.message().bytes().utf8String());
+            return Tuple.of(crr, crr.message().bytes().utf8String());
         } catch (Exception e) {
-            throw new ParserException(e, rr);
+            throw new ParserException(e, crr);
         }
     }
 }

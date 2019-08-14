@@ -6,6 +6,7 @@ public enum ConfigFactory {
 
     private RabbitmqConfig rabbitmqConfig;
     private BackOffConfig backOffConfig;
+    private LocalKinesisConfig localKinesisConfig;
 
     public synchronized RabbitmqConfig getRabbitmqConfig() {
         if (rabbitmqConfig == null) {
@@ -18,5 +19,11 @@ public enum ConfigFactory {
         if (backOffConfig == null)
             backOffConfig = new BackOffConfig();
         return backOffConfig;
+    }
+
+    public LocalKinesisConfig getLocalKinesisConfig() {
+        if (localKinesisConfig == null)
+            localKinesisConfig = new LocalKinesisConfig();
+        return localKinesisConfig;
     }
 }

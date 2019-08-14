@@ -1,25 +1,21 @@
 package ie.wtsanshou.local.aws.local.kinesis.node.stream;
 
-import akka.Done;
 import akka.NotUsed;
-import akka.japi.Pair;
-import akka.stream.ActorAttributes;
-import akka.stream.KillSwitches;
-import akka.stream.Supervision;
-import akka.stream.UniqueKillSwitch;
+import akka.stream.ClosedShape;
 import akka.stream.alpakka.amqp.javadsl.AmqpSource;
 import akka.stream.alpakka.amqp.javadsl.CommittableReadResult;
+import akka.stream.alpakka.kinesis.javadsl.KinesisSink;
 import akka.stream.javadsl.*;
+import com.amazonaws.services.kinesis.model.PutRecordsRequestEntry;
 import ie.wtsanshou.local.aws.local.kinesis.node.config.BackOffConfig;
+import ie.wtsanshou.local.aws.local.kinesis.node.config.LocalKinesisConfig;
 import ie.wtsanshou.local.aws.local.kinesis.node.config.RabbitmqConfig;
-import ie.wtsanshou.local.aws.local.kinesis.node.exception.ParserException;
+import ie.wtsanshou.local.aws.local.kinesis.node.translator.KinesisRecordsTranslator;
 import ie.wtsanshou.local.aws.local.kinesis.node.translator.Parser;
 import io.vavr.Tuple2;
 import lombok.extern.slf4j.Slf4j;
-import scala.concurrent.ExecutionContext;
 
 import java.time.Duration;
-import java.util.concurrent.CompletionStage;
 
 @Slf4j
 public class StreamFactory {
@@ -28,12 +24,16 @@ public class StreamFactory {
     }
 
     @SuppressWarnings("unchecked")
-    public static RunnableGraph<Pair<UniqueKillSwitch, CompletionStage<Done>>> streamOf(Source source, Flow flow, Sink sink) {
-        return source
-                .via(flow)
-                .viaMat(KillSwitches.single(), Keep.right())
-                .toMat(sink, Keep.both())
-                .withAttributes(ActorAttributes.withSupervisionStrategy(StreamFactory::decider));
+    public static RunnableGraph<NotUsed> streamOf(Source<CommittableReadResult, NotUsed> source, Flow<CommittableReadResult, PutRecordsRequestEntry, NotUsed> flow, Sink<PutRecordsRequestEntry, NotUsed> actorSink) {
+        return RunnableGraph.fromGraph(
+                GraphDSL.create(
+                        actorSink,
+                        (builder, sink) -> {
+                            builder.from(builder.add(source).out())
+                                    .via(builder.add(flow))
+                                    .to(sink);
+                            return ClosedShape.getInstance();
+                        }));
     }
 
     public static Source<CommittableReadResult, NotUsed> sourceOf(RabbitmqConfig rabbitmqConfig, BackOffConfig backOffConfig) {
@@ -47,29 +47,31 @@ public class StreamFactory {
                 });
     }
 
-    public static Flow<CommittableReadResult, Tuple2<CommittableReadResult, String>, NotUsed> flow() {
+    public static Flow<CommittableReadResult, PutRecordsRequestEntry, NotUsed> flow() {
+        return Flow.of(CommittableReadResult.class)
+                .via(parseFlow())
+                .via(translateFlow())
+                .via(ackFlow());
+    }
+
+    public static Sink<PutRecordsRequestEntry, NotUsed> sinkOf(LocalKinesisConfig localKinesisConfig) {
+        return KinesisSink.create(localKinesisConfig.STREAM_NAME, localKinesisConfig.KINESIS_FLOW_SETTINGS, localKinesisConfig.AMAZON_KINESIS_ASYNC);
+    }
+
+    private static Flow<CommittableReadResult, Tuple2<CommittableReadResult, String>, NotUsed> parseFlow() {
         return Flow.of(CommittableReadResult.class).map(Parser::decode);
     }
 
-    public static Sink<Tuple2<CommittableReadResult, String>, CompletionStage<Done>> sinkOf(ExecutionContext context) {
-        return Sink.foreachParallel(2,
-                tuple -> {
-                    System.out.println(tuple);
-                    tuple._1.ack();
-                },
-                context);
+    private static Flow<Tuple2<CommittableReadResult, String>, Tuple2<CommittableReadResult, PutRecordsRequestEntry>, NotUsed> translateFlow() {
+        return Flow.<Tuple2<CommittableReadResult, String>>create().map(KinesisRecordsTranslator::transferToRecord);
     }
 
-    private static Supervision.Directive decider(Throwable exception) {
-        if (exception instanceof ParserException) {
-            final ParserException e = (ParserException) exception;
-            e.getMsg().ack();
-            final var message = Parser.decode(e.getMsg());
-            log.warn("Cannot parse the message={}, exception={}", message, e);
-            return Supervision.restart();
-        } else {
-            log.error("Fatal Error occurred.", exception);
-            return Supervision.stop();
-        }
+    private static Flow<Tuple2<CommittableReadResult, PutRecordsRequestEntry>, PutRecordsRequestEntry, NotUsed> ackFlow() {
+        return Flow.<Tuple2<CommittableReadResult, PutRecordsRequestEntry>>create().map(pair -> {
+            pair._1.ack();
+            log.info("One message={} received get confirmation", pair._1);
+            return pair._2;
+        });
     }
+
 }

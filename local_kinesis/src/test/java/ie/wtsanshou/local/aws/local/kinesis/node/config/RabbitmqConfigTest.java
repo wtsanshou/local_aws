@@ -8,7 +8,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public class rabbitmqConfigTest {
+public class RabbitmqConfigTest {
 
     private final RabbitmqConfig rabbitmqConfig = ConfigFactory.INSTANCE.getRabbitmqConfig();
 
