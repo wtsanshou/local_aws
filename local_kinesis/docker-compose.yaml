@@ -16,13 +16,15 @@ services:
       NAME: "rabbitmq"
 
   kinesis:
-    image: localstack/localstack
+    build: docker/localstack
     ports:
       - "4567-4584:4567-4584"
       - "${PORT_WEB_UI-8080}:${PORT_WEB_UI-8080}"
     environment:
       - SERVICES=kinesis,cloudwatch,s3
       - DEFAULT_REGION=${AWS_REGION:-us-east-1}
+      - KINESIS_STREAM_NAME=local_kinesis_stream
+      - KINESIS_SHARD_COUNT=7
       - HOSTNAME=${LOCALSTACK_HOSTNAME:-localhost}
       - USE_SSL=false
       - KINESIS_ERROR_PROBABILITY=${LOCALSTACK_KINESIS_ERROR_PROBABILITY:-0.0}
