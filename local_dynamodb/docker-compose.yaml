@@ -1,0 +1,7 @@
+version: "3"
+
+services:
+  dynamodb:
+    build: docker/dynamodb
+    ports:
+      - 8000:8000
