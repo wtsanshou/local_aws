@@ -1,5 +1,6 @@
 package ie.wtsanshou.local.aws.local.kinesis.node.stream;
 
+import akka.Done;
 import akka.NotUsed;
 import akka.actor.ActorSystem;
 import akka.stream.ActorMaterializer;
@@ -9,14 +10,15 @@ import akka.stream.alpakka.amqp.javadsl.CommittableReadResult;
 import akka.stream.javadsl.Flow;
 import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.Source;
+import akka.testkit.javadsl.TestKit;
 import akka.util.ByteString;
 import com.amazonaws.services.kinesis.model.PutRecordsRequestEntry;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import io.vavr.Tuple;
+import io.vavr.Tuple2;
+import org.junit.jupiter.api.*;
 import org.mockito.Mockito;
 
+import java.time.Duration;
 import java.util.Collections;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
